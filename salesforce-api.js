@@ -22,7 +22,7 @@
 const SF = {
   INSTANCE_URL: 'https://meucrediario.my.salesforce.com',
   CLIENT_ID:    '3MVG9HB6vm3GZZR8FAYJxufmYBeoBcc6.c9Wpe_fdP4G8niPuZ5rplPHPHU_V7gTrKU4unDGWaYtm5FrvgGhW',
-  REDIRECT_URI:  'https://faubin79.github.io/dashboard-mc/dashboard-tv.html',
+  REDIRECT_URI:  'https://faubin-meucrediario.github.io/dashboard-mc/dashboard-tv.html',
   API_VERSION:  'v62.0',
   MOCK_MODE:     false,
 };
