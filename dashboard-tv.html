@@ -1,0 +1,1478 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=1920,initial-scale=1"/>
+<title>Meu Crediário · Dashboard TV</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="salesforce-api.js"></script>
+<style>
+/* ─── TOKENS ─── */
+:root {
+  --g:   #1A7A4A;
+  --gm:  #22A05F;
+  --gl:  rgba(26,122,74,.18);
+  --r:   #C0271E;
+  --rl:  rgba(192,39,30,.18);
+  --o:   #F5A623;
+  --ol:  rgba(245,166,35,.18);
+  --bg:  #0E1117;
+  --bg2: #161B24;
+  --bg3: #1E2533;
+  --bd:  rgba(255,255,255,.07);
+  --t1:  #FFFFFF;
+  --t2:  rgba(255,255,255,.65);
+  --t3:  rgba(255,255,255,.35);
+  --blue:#3B82F6;
+  --blu2:rgba(59,130,246,.18);
+  --rad: 12px;
+}
+
+/* ─── RESET ─── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--t1);
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── TV STAGE: fills viewport, maintains 16:9 ─── */
+#stage {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─── TOPBAR ─── */
+#topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 48px;
+  height: 72px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--bd);
+  flex-shrink: 0;
+}
+
+.logo {
+  display: flex; align-items: center; gap: 14px;
+}
+.logo svg { width: 44px; height: 44px; }
+.logo-words { display: flex; flex-direction: column; }
+.logo-meu   { font-size: 12px; color: var(--t3); letter-spacing: .5px; }
+.logo-cred  { font-size: 22px; font-weight: 800; letter-spacing: -1px; line-height: 1; }
+.logo-cred em { color: var(--g); font-style: normal; }
+
+.topbar-center {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.slide-name {
+  font-size: 18px; font-weight: 700; color: var(--t1);
+}
+.slide-dots {
+  display: flex; gap: 6px;
+}
+.dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--t3); transition: background .3s;
+  cursor: pointer;
+}
+.dot.on { background: var(--g); }
+
+.topbar-right {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 3px;
+}
+.tb-date { font-size: 13px; color: var(--t3); }
+.tb-time { font-size: 26px; font-weight: 700; color: var(--t1); line-height: 1; }
+
+/* ─── PROGRESS BAR ─── */
+#progress-bar {
+  height: 3px;
+  background: var(--bd);
+  flex-shrink: 0;
+}
+#progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--g), var(--gm));
+  width: 0%;
+  transition: width linear;
+}
+
+/* ─── SLIDE CONTAINER ─── */
+#slides {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.slide {
+  position: absolute;
+  inset: 0;
+  padding: 28px 48px 28px;
+  display: none;
+  flex-direction: column;
+  gap: 20px;
+}
+.slide.active { display: flex; }
+
+/* ─── SLIDE HEADER ─── */
+.slide-header {
+  display: flex; align-items: baseline; gap: 12px;
+  flex-shrink: 0;
+}
+.slide-title {
+  font-size: 15px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 1.5px;
+  color: var(--t3);
+}
+.slide-title-accent { color: var(--g); }
+.slide-sub {
+  font-size: 13px; color: var(--t3);
+}
+
+/* ─── KPI CARD ─── */
+.kpi-grid {
+  display: grid;
+  gap: 16px;
+}
+.kpi-grid.cols-4 { grid-template-columns: repeat(4,1fr); }
+.kpi-grid.cols-5 { grid-template-columns: repeat(5,1fr); }
+.kpi-grid.cols-3 { grid-template-columns: repeat(3,1fr); }
+
+.kpi {
+  background: var(--bg2);
+  border: 1px solid var(--bd);
+  border-radius: var(--rad);
+  padding: 22px 24px;
+  display: flex; flex-direction: column; gap: 6px;
+  position: relative; overflow: hidden;
+}
+.kpi::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  border-radius: var(--rad) var(--rad) 0 0;
+}
+.kpi.g::before { background: var(--g); }
+.kpi.r::before { background: var(--r); }
+.kpi.o::before { background: var(--o); }
+.kpi.b::before { background: var(--blue); }
+.kpi.w::before { background: var(--t3); }
+
+.kpi-label {
+  font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 1px;
+  color: var(--t3);
+}
+.kpi-value {
+  font-size: 44px; font-weight: 800;
+  line-height: 1; color: var(--t1);
+  letter-spacing: -2px;
+}
+.kpi-value.big { font-size: 56px; }
+.kpi-value.med { font-size: 36px; letter-spacing: -1px; }
+.kpi-delta {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 13px; font-weight: 700;
+  padding: 3px 10px; border-radius: 20px;
+  align-self: flex-start;
+}
+.kpi-delta.pos { background: var(--gl); color: var(--gm); }
+.kpi-delta.neg { background: var(--rl); color: #ff6b6b; }
+.kpi-delta.warn{ background: var(--ol); color: var(--o); }
+.kpi-delta.neu { background: var(--bd); color: var(--t3); }
+.kpi-sub { font-size: 12px; color: var(--t3); }
+
+/* ─── MAIN GRIDS ─── */
+.row { display: flex; gap: 16px; flex: 1; min-height: 0; }
+.row > * { flex: 1; min-width: 0; }
+.row > .w2 { flex: 2; }
+.row > .w15 { flex: 1.5; }
+
+/* ─── CARD ─── */
+.card {
+  background: var(--bg2);
+  border: 1px solid var(--bd);
+  border-radius: var(--rad);
+  padding: 20px 22px;
+  display: flex; flex-direction: column; gap: 12px;
+  min-height: 0;
+}
+.card-title {
+  font-size: 13px; font-weight: 700;
+  color: var(--t2); letter-spacing: .3px;
+  flex-shrink: 0;
+}
+.card-body { flex: 1; min-height: 0; }
+.chart-wrap { flex: 1; position: relative; min-height: 0; }
+.chart-wrap canvas { max-height: 100%; }
+
+/* ─── FUNIL VISUAL ─── */
+.funnel-tv {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  gap: 8px;
+}
+.fun-row {
+  display: flex; align-items: center; gap: 14px;
+}
+.fun-label {
+  width: 140px; font-size: 15px; font-weight: 600; color: var(--t2);
+  text-align: right; flex-shrink: 0;
+}
+.fun-bar-outer { flex: 1; }
+.fun-bar {
+  height: 40px; border-radius: 6px;
+  display: flex; align-items: center;
+  padding: 0 16px;
+  font-size: 18px; font-weight: 800; color: #fff;
+  transition: width .8s ease;
+}
+.fun-pct {
+  width: 60px; font-size: 14px; font-weight: 700; color: var(--t3);
+}
+.fun-count {
+  width: 80px; font-size: 16px; font-weight: 700; color: var(--t1);
+}
+
+/* ─── TABLE TV ─── */
+.tv-table {
+  width: 100%; border-collapse: collapse;
+  font-size: 15px;
+}
+.tv-table th {
+  font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .8px;
+  color: var(--t3); padding: 8px 14px;
+  border-bottom: 1px solid var(--bd);
+  text-align: left;
+}
+.tv-table td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--bd);
+  color: var(--t2);
+}
+.tv-table td:first-child { font-weight: 700; color: var(--t1); }
+.tv-table tr:last-child td { border-bottom: none; }
+.tv-table tr.total td { color: var(--t1); font-weight: 800; background: var(--bg3); }
+
+/* ─── PILL ─── */
+.pill {
+  display: inline-flex; align-items: center;
+  padding: 3px 10px; border-radius: 20px;
+  font-size: 13px; font-weight: 700;
+}
+.pill.g  { background: var(--gl); color: var(--gm); }
+.pill.r  { background: var(--rl); color: #ff6b6b; }
+.pill.o  { background: var(--ol); color: var(--o); }
+.pill.b  { background: var(--blu2); color: var(--blue); }
+
+/* ─── VENDOR ROW ─── */
+.vendor-rows { display: flex; flex-direction: column; gap: 12px; height: 100%; justify-content: center; }
+.vendor-row {
+  display: flex; align-items: center; gap: 16px;
+  background: var(--bg3); border-radius: 8px; padding: 14px 20px;
+}
+.vendor-name { font-size: 18px; font-weight: 700; width: 100px; flex-shrink: 0; }
+.vendor-bar-w { flex: 1; height: 10px; background: var(--bd); border-radius: 5px; }
+.vendor-bar { height: 100%; border-radius: 5px; }
+.vendor-val { font-size: 22px; font-weight: 800; width: 70px; text-align: right; flex-shrink: 0; }
+.vendor-lbl { font-size: 12px; color: var(--t3); width: 90px; flex-shrink: 0; }
+
+/* ─── BAR STAT (horizontal) ─── */
+.bar-stats { display: flex; flex-direction: column; gap: 10px; height: 100%; justify-content: center; }
+.bar-stat { display: flex; align-items: center; gap: 14px; }
+.bs-label { font-size: 14px; font-weight: 600; color: var(--t2); width: 130px; flex-shrink: 0; }
+.bs-bar-w { flex: 1; height: 8px; background: var(--bd); border-radius: 4px; }
+.bs-bar { height: 100%; border-radius: 4px; background: var(--g); }
+.bs-val { font-size: 16px; font-weight: 800; width: 70px; text-align: right; flex-shrink: 0; color: var(--t1); }
+.bs-pct { font-size: 13px; color: var(--t3); width: 40px; flex-shrink: 0; }
+
+/* ─── CONTROLS (hover) ─── */
+#controls {
+  position: fixed; bottom: 20px; right: 24px;
+  display: flex; gap: 8px;
+  opacity: 0; transition: opacity .3s;
+}
+#stage:hover #controls { opacity: 1; }
+.ctrl-btn {
+  background: var(--bg3); border: 1px solid var(--bd);
+  color: var(--t2); border-radius: 8px; padding: 8px 16px;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: all .2s;
+}
+.ctrl-btn:hover { background: var(--g); color: #fff; border-color: var(--g); }
+.ctrl-btn.pause-btn { min-width: 80px; }
+
+/* ─── ANIMATIONS ─── */
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.slide.active { animation: slideIn .4s ease; }
+
+/* ─── UTM TAG ─── */
+.utag {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 9px; border-radius: 20px;
+  font-size: 12px; font-weight: 700;
+}
+.utag.ig  { background: rgba(233,30,99,.2);  color: #f06292; }
+.utag.org { background: var(--gl);            color: var(--gm); }
+.utag.fb  { background: rgba(21,101,192,.2); color: #64b5f6; }
+.utag.out { background: rgba(111,66,193,.2); color: #ce93d8; }
+</style>
+</head>
+<body>
+<div id="stage">
+
+  <!-- TOP BAR -->
+  <div id="topbar">
+    <div class="logo">
+      <svg viewBox="0 0 44 44" fill="none">
+        <path d="M22 5A17 17 0 0 0 5 22"  stroke="#1A7A4A" stroke-width="6" stroke-linecap="round"/>
+        <path d="M5 22A17 17 0 0 0 22 39" stroke="#C0271E" stroke-width="6" stroke-linecap="round"/>
+        <path d="M22 39A17 17 0 0 0 39 22" stroke="#F5A623" stroke-width="6" stroke-linecap="round"/>
+      </svg>
+      <div class="logo-words">
+        <span class="logo-meu">meu</span>
+        <span class="logo-cred">credi<em>ário</em></span>
+      </div>
+    </div>
+
+    <div class="topbar-center">
+      <div class="slide-name" id="slide-name">Performance Geral</div>
+      <div class="slide-dots" id="dots"></div>
+    </div>
+
+    <div class="topbar-right">
+      <div id="sf-status" style="font-size:11px;color:var(--o);cursor:pointer;margin-bottom:2px" onclick="syncNow()">⚠ Dados Mockados</div>
+      <div class="tb-date" id="tb-date"></div>
+      <div class="tb-time" id="tb-time"></div>
+    </div>
+  </div>
+
+  <!-- PROGRESS BAR -->
+  <div id="progress-bar"><div id="progress-fill"></div></div>
+
+  <!-- SLIDES -->
+  <div id="slides">
+
+    <!-- ══════════════════════════════════════
+         SLIDE 1 · FUNIL GERAL 2026
+    ══════════════════════════════════════ -->
+    <div class="slide active" data-name="Funil Geral 2026">
+      <div class="slide-header">
+        <div class="slide-title">Performance <span class="slide-title-accent">2026</span></div>
+        <div class="slide-sub">Lead Novo → SDR → Comercial → Cliente</div>
+      </div>
+
+      <!-- KPIs -->
+      <div class="kpi-grid cols-5">
+        <div class="kpi g">
+          <div class="kpi-label">Lead Novo</div>
+          <div class="kpi-value">5.533</div>
+          <div class="kpi-delta pos">↑ 12% vs 2025</div>
+        </div>
+        <div class="kpi r">
+          <div class="kpi-label">Perda SDR</div>
+          <div class="kpi-value" style="color:#ff6b6b">4.436</div>
+          <div class="kpi-delta neg">84% dos leads</div>
+        </div>
+        <div class="kpi w">
+          <div class="kpi-label">Estoque SDR</div>
+          <div class="kpi-value">294</div>
+          <div class="kpi-delta neu">em análise</div>
+        </div>
+        <div class="kpi o">
+          <div class="kpi-label">Oport. Pipeline</div>
+          <div class="kpi-value">249</div>
+          <div class="kpi-delta warn">estoque atual</div>
+        </div>
+        <div class="kpi g">
+          <div class="kpi-label">Clientes Ganhos</div>
+          <div class="kpi-value" style="color:var(--gm)">277</div>
+          <div class="kpi-delta pos">24% das oport.</div>
+        </div>
+      </div>
+
+      <!-- Funil visual + Motivos de Perda -->
+      <div class="row">
+        <div class="card w2">
+          <div class="card-title">Funil Completo — do Lead ao Cliente</div>
+          <div class="card-body">
+            <div class="funnel-tv" id="funnel1"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Resultado Final 2026</div>
+          <div class="card-body" style="display:flex;flex-direction:column;justify-content:center;gap:20px;">
+            <div style="text-align:center;padding:20px;background:var(--bg3);border-radius:10px;">
+              <div style="font-size:80px;font-weight:900;color:var(--r);line-height:1">93%</div>
+              <div style="font-size:16px;color:var(--t3);margin-top:4px">Funil Total — Perda</div>
+            </div>
+            <div style="text-align:center;padding:20px;background:var(--gl);border-radius:10px;border:1px solid var(--g)">
+              <div style="font-size:72px;font-weight:900;color:var(--gm);line-height:1">5%</div>
+              <div style="font-size:16px;color:var(--t3);margin-top:4px">Lead → Cliente</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Principais Motivos de Perda SDR</div>
+          <div class="card-body">
+            <div class="bar-stats">
+              <div class="bar-stat">
+                <div class="bs-label">Sem Contato</div>
+                <div class="bs-bar-w"><div class="bs-bar" style="width:100%;background:var(--blue)"></div></div>
+                <div class="bs-val">1.386</div>
+                <div class="bs-pct">43%</div>
+              </div>
+              <div class="bar-stat">
+                <div class="bs-label">Financeira</div>
+                <div class="bs-bar-w"><div class="bs-bar" style="width:77%;background:var(--r)"></div></div>
+                <div class="bs-val">585</div>
+                <div class="bs-pct">33%</div>
+              </div>
+              <div class="bar-stat">
+                <div class="bs-label">Perfil</div>
+                <div class="bs-bar-w"><div class="bs-bar" style="width:20%;background:var(--o)"></div></div>
+                <div class="bs-val">134</div>
+                <div class="bs-pct">6%</div>
+              </div>
+              <div class="bar-stat">
+                <div class="bs-label">Produto</div>
+                <div class="bs-bar-w"><div class="bs-bar" style="width:17%;background:#9c27b0"></div></div>
+                <div class="bs-val">108</div>
+                <div class="bs-pct">5%</div>
+              </div>
+              <div class="bar-stat">
+                <div class="bs-label">Perdeu Inter.</div>
+                <div class="bs-bar-w"><div class="bs-bar" style="width:13%;background:var(--t3)"></div></div>
+                <div class="bs-val">81</div>
+                <div class="bs-pct">4%</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════
+         SLIDE 2 · METAS DO MÊS
+    ══════════════════════════════════════ -->
+    <div class="slide" data-name="Metas do Mês">
+      <div class="slide-header">
+        <div class="slide-title">Resultados do <span class="slide-title-accent">Mês Atual</span></div>
+        <div class="slide-sub">Comparativo com meta · junho 2026</div>
+      </div>
+
+      <div class="kpi-grid cols-4">
+        <div class="kpi o">
+          <div class="kpi-label">Faturamento Total</div>
+          <div class="kpi-value med">R$ 57,0 Mi</div>
+          <div class="kpi-delta warn">⚠ Meta: R$ 70 Mi</div>
+          <div class="kpi-sub">81% da meta atingida</div>
+        </div>
+        <div class="kpi g">
+          <div class="kpi-label">Setup Novo</div>
+          <div class="kpi-value med">R$ 33,1 Mi</div>
+          <div class="kpi-delta pos">↑ 8% vs mai/26</div>
+        </div>
+        <div class="kpi g">
+          <div class="kpi-label">MRR Novo</div>
+          <div class="kpi-value med">R$ 23,9 Mi</div>
+          <div class="kpi-delta pos">↑ 5% vs mai/26</div>
+        </div>
+        <div class="kpi b">
+          <div class="kpi-label">Ganho % SDR Mês</div>
+          <div class="kpi-value">19%</div>
+          <div class="kpi-delta neu">150 oport. / 41 ganhas</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="card w2">
+          <div class="card-title">Novos Leads — Histórico Jan/25 → Jun/26</div>
+          <div class="chart-wrap"><canvas id="metaLeadsChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Oport. Iniciadas — Histórico</div>
+          <div class="chart-wrap"><canvas id="metaOppChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Oport. Fechadas — Histórico</div>
+          <div class="chart-wrap"><canvas id="metaFechChart"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════
+         SLIDE 3 · PERFORMANCE VENDEDORES
+    ══════════════════════════════════════ -->
+    <div class="slide" data-name="Vendedores">
+      <div class="slide-header">
+        <div class="slide-title">Performance <span class="slide-title-accent">Comercial</span></div>
+        <div class="slide-sub">Taxa de conversão por vendedor · No ano · 90d · 30d</div>
+      </div>
+
+      <div class="kpi-grid cols-4">
+        <div class="kpi g">
+          <div class="kpi-label">Lead Novo (Mês)</div>
+          <div class="kpi-value">716</div>
+          <div class="kpi-delta pos">↑ 19% ganho SDR</div>
+        </div>
+        <div class="kpi o">
+          <div class="kpi-label">Oport. Nova (Mês)</div>
+          <div class="kpi-value">150</div>
+          <div class="kpi-delta pos">↑ 19% ganho Comercial</div>
+        </div>
+        <div class="kpi g">
+          <div class="kpi-label">Lead Ganho (Ano)</div>
+          <div class="kpi-value">991</div>
+          <div class="kpi-delta pos">17% do total</div>
+        </div>
+        <div class="kpi g">
+          <div class="kpi-label">Oport. Ganha (Ano)</div>
+          <div class="kpi-value">277</div>
+          <div class="kpi-delta pos">24% das oport.</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="card">
+          <div class="card-title">% Ganho SDR por Vendedor</div>
+          <div class="vendor-rows" id="sdr-vendors"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">% Ganho Comercial por Vendedor</div>
+          <div class="vendor-rows" id="com-vendors"></div>
+        </div>
+        <div class="card w2">
+          <div class="card-title">% Ganho SDR — Evolução 12 meses (30d rolling)</div>
+          <div class="chart-wrap"><canvas id="taxaChart"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════
+         SLIDE 4 · SEGMENTAÇÃO DE MERCADO
+    ══════════════════════════════════════ -->
+    <div class="slide" data-name="Segmentação">
+      <div class="slide-header">
+        <div class="slide-title">Perfil dos <span class="slide-title-accent">Negócios Ganhos</span></div>
+        <div class="slide-sub">Por segmento, faturamento e número de lojas · Ano atual</div>
+      </div>
+
+      <div class="row">
+        <div class="card">
+          <div class="card-title">Por Segmento de Ramo</div>
+          <div class="chart-wrap"><canvas id="ramoChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Por Faturamento da Loja</div>
+          <div class="chart-wrap"><canvas id="fatChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Por Número de Lojas</div>
+          <div class="chart-wrap"><canvas id="lojasChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Tem Crediário?</div>
+          <div class="chart-wrap"><canvas id="credChart"></canvas></div>
+        </div>
+      </div>
+
+      <div class="row" style="flex:0.6">
+        <div class="card" style="flex:3">
+          <div class="card-title">Ganho por Segmento × Taxa de Conversão</div>
+          <table class="tv-table">
+            <thead><tr><th>Segmento</th><th>Lead Novo</th><th>Lead Ganho</th><th>% SDR</th><th>Oport Nova</th><th>Oport Ganha</th><th>% Comercial</th></tr></thead>
+            <tbody>
+              <tr><td>Moda&amp;Esporte</td><td>759</td><td>180</td><td><span class="pill g">24%</span></td><td>182</td><td>50</td><td><span class="pill g">27%</span></td></tr>
+              <tr><td>Móveis&amp;Eletro</td><td>442</td><td>94</td><td><span class="pill g">21%</span></td><td>96</td><td>25</td><td><span class="pill g">26%</span></td></tr>
+              <tr><td>Cel&amp;Inform</td><td>430</td><td>37</td><td><span class="pill r">9%</span></td><td>40</td><td>11</td><td><span class="pill g">28%</span></td></tr>
+              <tr><td>Ótica</td><td>260</td><td>76</td><td><span class="pill g">29%</span></td><td>80</td><td>7</td><td><span class="pill r">9%</span></td></tr>
+              <tr><td>Farma&amp;Perfume</td><td>181</td><td>31</td><td><span class="pill o">17%</span></td><td>30</td><td>1</td><td><span class="pill r">3%</span></td></tr>
+              <tr class="total"><td>Total</td><td>2.415</td><td>457</td><td><span class="pill g">19%</span></td><td>510</td><td>130</td><td><span class="pill g">25%</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════
+         SLIDE 5 · LEADS SDR
+    ══════════════════════════════════════ -->
+    <div class="slide" data-name="Esteira SDR">
+      <div class="slide-header">
+        <div class="slide-title">Esteira <span class="slide-title-accent">SDR</span></div>
+        <div class="slide-sub">Leads iniciados e perdidos por vendedor · Últimos 30 dias</div>
+      </div>
+
+      <div class="kpi-grid cols-4">
+        <div class="kpi g">
+          <div class="kpi-label">Leads Iniciados SDR</div>
+          <div class="kpi-value">753</div>
+          <div class="kpi-delta pos">Mês atual</div>
+        </div>
+        <div class="kpi g">
+          <div class="kpi-label">Conv. Matheus</div>
+          <div class="kpi-value">26%</div>
+          <div class="kpi-sub">448 recebidos · 62 convertidos</div>
+        </div>
+        <div class="kpi o">
+          <div class="kpi-label">Conv. Raquel</div>
+          <div class="kpi-value">13%</div>
+          <div class="kpi-sub">301 recebidos · 87 convertidos</div>
+        </div>
+        <div class="kpi r">
+          <div class="kpi-label">Leads Perdidos</div>
+          <div class="kpi-value" style="color:#ff6b6b">416</div>
+          <div class="kpi-delta neg">43% sem contato</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="card w2">
+          <div class="card-title">Leads Perdidos SDR — Histórico Mensal por Motivo</div>
+          <div class="chart-wrap"><canvas id="perdaChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Motivos de Perda</div>
+          <div class="chart-wrap"><canvas id="motivosChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Leads Iniciados por Canal</div>
+          <div class="chart-wrap"><canvas id="sdrCanaisChart"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════
+         SLIDE 6 · MARKETING LEADS
+    ══════════════════════════════════════ -->
+    <div class="slide" data-name="Leads Marketing">
+      <div class="slide-header">
+        <div class="slide-title">Leads Gerados pelo <span class="slide-title-accent">Marketing</span></div>
+        <div class="slide-sub">Perfil dos 2.775 leads · Jun/2026</div>
+      </div>
+
+      <div class="kpi-grid cols-4">
+        <div class="kpi g">
+          <div class="kpi-label">Total Leads Mkt</div>
+          <div class="kpi-value">2.775</div>
+          <div class="kpi-sub">753 SDR · 2022 Light</div>
+        </div>
+        <div class="kpi o">
+          <div class="kpi-label">Principal Ramo</div>
+          <div class="kpi-value med">Moda</div>
+          <div class="kpi-sub">870 leads · 31%</div>
+        </div>
+        <div class="kpi b">
+          <div class="kpi-label">Origem Website</div>
+          <div class="kpi-value">91%</div>
+          <div class="kpi-sub">canal dominante</div>
+        </div>
+        <div class="kpi g">
+          <div class="kpi-label">Com Crediário Próprio</div>
+          <div class="kpi-value">50%</div>
+          <div class="kpi-sub">1.385 leads qualificados</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="card w2">
+          <div class="card-title">Volume de Leads — Média Móvel 30d · Jun/25–Jun/26</div>
+          <div class="chart-wrap"><canvas id="mktLeadsChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Por Ramo</div>
+          <div class="chart-wrap"><canvas id="mktRamoChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Por Faturamento</div>
+          <div class="chart-wrap"><canvas id="mktFatChart"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════
+         SLIDE 7 · UTMs E CAMPANHAS
+    ══════════════════════════════════════ -->
+    <div class="slide" data-name="Campanhas UTM">
+      <div class="slide-header">
+        <div class="slide-title">Campanhas <span class="slide-title-accent">UTM</span></div>
+        <div class="slide-sub">Performance por canal e campanha · 5.405 leads no ano</div>
+      </div>
+
+      <div class="kpi-grid cols-4">
+        <div class="kpi" style="border-top:3px solid #f06292">
+          <div class="kpi-label">Instagram Ads</div>
+          <div class="kpi-value">4.669</div>
+          <div class="kpi-delta pos">12% conv. SDR</div>
+        </div>
+        <div class="kpi g">
+          <div class="kpi-label">Orgânico</div>
+          <div class="kpi-value">720</div>
+          <div class="kpi-delta pos">39% conv. — melhor canal</div>
+        </div>
+        <div class="kpi b">
+          <div class="kpi-label">Top campanha</div>
+          <div class="kpi-value med">ig-pub1+27-C</div>
+          <div class="kpi-sub">999 leads · 13% conv.</div>
+        </div>
+        <div class="kpi o">
+          <div class="kpi-label">Remarketing (ig-rmkt)</div>
+          <div class="kpi-value">1.531</div>
+          <div class="kpi-sub">158 ganhos · 10%</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="card w2">
+          <div class="card-title">Performance por Campanha UTM — Leads × Conversão × Oportunidades</div>
+          <table class="tv-table">
+            <thead><tr><th>Canal</th><th>Campanha</th><th>Leads</th><th>Ganhos SDR</th><th>% SDR</th><th>Oport</th><th>% Oport</th><th>% Geral</th></tr></thead>
+            <tbody id="utm-tbody-tv"></tbody>
+          </table>
+        </div>
+        <div class="card">
+          <div class="card-title">Distribuição por UTM_G1</div>
+          <div class="chart-wrap"><canvas id="utmDistChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Tendência Semanal por Canal</div>
+          <div class="chart-wrap"><canvas id="utmTrendChart"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /slides -->
+
+  <!-- HOVER CONTROLS -->
+  <div id="controls">
+    <button class="ctrl-btn" onclick="prevSlide()">← Anterior</button>
+    <button class="ctrl-btn pause-btn" id="pause-btn" onclick="togglePause()">⏸ Pausar</button>
+    <button class="ctrl-btn" onclick="nextSlide()">Próximo →</button>
+  </div>
+
+</div><!-- /stage -->
+
+<script>
+/* ═══════════════════════════════════════
+   CLOCK
+═══════════════════════════════════════ */
+function updateClock(){
+  const now=new Date();
+  document.getElementById('tb-time').textContent=
+    now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('tb-date').textContent=
+    now.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+}
+setInterval(updateClock,1000);
+updateClock();
+
+/* ═══════════════════════════════════════
+   SLIDE ROTATION
+═══════════════════════════════════════ */
+const SLIDE_DURATION = 18000; // 18s per slide
+const slides  = Array.from(document.querySelectorAll('.slide'));
+const names   = slides.map(s=>s.dataset.name);
+let current   = 0;
+let paused    = false;
+let startTime = Date.now();
+let rafId     = null;
+
+// Build dots
+const dotsEl = document.getElementById('dots');
+names.forEach((_,i)=>{
+  const d=document.createElement('div');
+  d.className='dot'+(i===0?' on':'');
+  d.onclick=()=>goTo(i);
+  dotsEl.appendChild(d);
+});
+
+function updateDots(){
+  document.querySelectorAll('.dot').forEach((d,i)=>
+    d.classList.toggle('on',i===current));
+}
+
+function goTo(idx){
+  slides[current].classList.remove('active');
+  current=((idx%slides.length)+slides.length)%slides.length;
+  slides[current].classList.add('active');
+  document.getElementById('slide-name').textContent=names[current];
+  updateDots();
+  startTime=Date.now();
+}
+
+function nextSlide(){ goTo(current+1); }
+function prevSlide(){ goTo(current-1); }
+
+// Progress bar animation
+function animProgress(){
+  if(!paused){
+    const elapsed=Date.now()-startTime;
+    const pct=Math.min((elapsed/SLIDE_DURATION)*100,100);
+    document.getElementById('progress-fill').style.width=pct+'%';
+    if(elapsed>=SLIDE_DURATION){ nextSlide(); }
+  }
+  rafId=requestAnimationFrame(animProgress);
+}
+animProgress();
+
+function togglePause(){
+  paused=!paused;
+  document.getElementById('pause-btn').textContent=paused?'▶ Retomar':'⏸ Pausar';
+  if(!paused) startTime=Date.now();
+}
+
+/* ═══════════════════════════════════════
+   DATA
+═══════════════════════════════════════ */
+const MESES=['jan/25','fev/25','mar/25','abr/25','mai/25','jun/25',
+             'jul/25','ago/25','set/25','out/25','nov/25','dez/25',
+             'jan/26','fev/26','mar/26','abr/26','mai/26','jun/26'];
+
+const ML=[1083,1343,1471,1780,1807,1709,1913,2916,2008,2400,2625,2672,3094,3183,2871,3024,2833,2625];
+const MI=[432,363,466,614,577,561,625,667,691,886,980,1127,1069,1083,1009,922,739,716];
+const MO=[164,131,158,145,129,138,183,175,194,183,181,115,193,202,178,174,175,168];
+const MF=[48,36,53,49,51,46,41,42,53,56,69,27,48,47,60,40,48,41];
+
+const TAXA_M=['jun/25','jul/25','ago/25','set/25','out/25','nov/25','dez/25','jan/26','fev/26','mar/26','abr/26','mai/26','jun/26'];
+const TAXA_S=[36.9,38,37.3,39.5,28.8,30.9,15.5,26.9,25.9,25.8,28.7,38.4,34.5];
+const TAXA_C=[37.8,30.1,32,27.2,36.3,28.1,28.4,26.4,29.8,31.1,29.4,27.8,21.8];
+
+const UTM_ROWS=[
+  {tag:'ig', camp:'ig-ads-pub1+27-C', l:999,  lc:125,lp:'13%',op:127,opp:'19%',all:'2.4%'},
+  {tag:'ig', camp:'ig-ads-rmkt',       l:1531, lc:158,lp:'10%',op:158,opp:'9%', all:'1.0%'},
+  {tag:'ig', camp:'ig-ads-pub1+27-A',  l:672,  lc:79, lp:'12%',op:81, opp:'14%',all:'1.6%'},
+  {tag:'ig', camp:'ig-ads-pub1+27-B',  l:346,  lc:36, lp:'10%',op:38, opp:'24%',all:'2.6%'},
+  {tag:'ig', camp:'ig-ads-Adv+27-D',   l:201,  lc:28, lp:'14%',op:28, opp:'4%', all:'0.5%'},
+  {tag:'org',camp:'Orgânico/Pesquisa', l:530,  lc:215,lp:'41%',op:212,opp:'30%',all:'12.1%'},
+  {tag:'org',camp:'site-bot',           l:146,  lc:84, lp:'58%',op:null,opp:'—', all:'—'},
+  {tag:'fb', camp:'face-ads-pub1',      l:3,    lc:1,  lp:'33%',op:3,  opp:'33%',all:'0.0%'},
+];
+
+/* ═══════════════════════════════════════
+   CHART DEFAULTS
+═══════════════════════════════════════ */
+Chart.defaults.font.family="'Inter','Segoe UI',sans-serif";
+Chart.defaults.font.size=13;
+Chart.defaults.color='rgba(255,255,255,.45)';
+Chart.defaults.borderColor='rgba(255,255,255,.07)';
+
+const C={g:'#1A7A4A',gm:'#22A05F',r:'#C0271E',o:'#F5A623',b:'#3B82F6',gr:'rgba(255,255,255,.25)',ig:'#e91e63',fb:'#1565c0',org:'#1A7A4A'};
+
+let _ch={};
+function mk(id,cfg){
+  if(_ch[id]) _ch[id].destroy();
+  const el=document.getElementById(id);
+  if(!el)return;
+  _ch[id]=new Chart(el,cfg);
+}
+
+const gridOpts={
+  grid:{color:'rgba(255,255,255,.06)'},
+  ticks:{color:'rgba(255,255,255,.4)'}
+};
+const noGrid={grid:{display:false},ticks:{color:'rgba(255,255,255,.4)'}};
+const legend={position:'bottom',labels:{color:'rgba(255,255,255,.55)',boxWidth:12,padding:16,font:{size:12}}};
+
+/* ═══════════════════════════════════════
+   BUILD FUNNEL (slide 1)
+═══════════════════════════════════════ */
+function buildFunnel(){
+  const el=document.getElementById('funnel1');
+  if(!el)return;
+  const steps=[
+    {lbl:'Visitantes',n:12400,pct:100,c:'rgba(255,255,255,.25)'},
+    {lbl:'Leads',     n:5533, pct:44.6,c:C.b},
+    {lbl:'MQLs SDR',  n:753,  pct:13.6,c:C.o},
+    {lbl:'Oport.',    n:277,  pct:36.8,c:C.r},
+    {lbl:'Clientes',  n:277,  pct:100, c:C.g},
+  ];
+  const max=steps[0].n;
+  el.innerHTML='';
+  steps.forEach((s,i)=>{
+    const pxPct=Math.max(14,(s.n/max)*100);
+    const row=document.createElement('div');
+    row.className='fun-row';
+    row.innerHTML=`
+      <div class="fun-label">${s.lbl}</div>
+      <div class="fun-bar-outer">
+        <div class="fun-bar" style="width:${pxPct}%;background:${s.c}">
+          ${s.n.toLocaleString('pt-BR')}
+        </div>
+      </div>
+      <div class="fun-pct">${i===0?'—':s.pct+'%'}</div>
+    `;
+    el.appendChild(row);
+    if(i<steps.length-1){
+      const arr=document.createElement('div');
+      arr.style.cssText='text-align:center;color:rgba(255,255,255,.25);font-size:14px;margin:-3px 0 -3px 155px';
+      arr.textContent='↓';
+      el.appendChild(arr);
+    }
+  });
+}
+
+/* ═══════════════════════════════════════
+   BUILD VENDOR ROWS
+═══════════════════════════════════════ */
+function buildVendors(){
+  const sdrEl=document.getElementById('sdr-vendors');
+  const comEl=document.getElementById('com-vendors');
+  const sdrData=[
+    {name:'Matheus',ano:26,_90d:12,_30d:26,c:C.gm},
+    {name:'Raquel', ano:23,_90d:12,_30d:13,c:C.o},
+    {name:'Valdemir',ano:67,_90d:null,_30d:null,c:C.b},
+  ];
+  const comData=[
+    {name:'Ully',   ano:33,_90d:22,_30d:21,c:C.gm},
+    {name:'Marcelo',ano:23,_90d:17,_30d:21,c:C.o},
+    {name:'Eliana', ano:21,_90d:15,_30d:null,c:C.r},
+  ];
+  function renderVendors(el,data){
+    if(!el)return;
+    el.innerHTML='';
+    data.forEach(v=>{
+      const pct=v.ano;
+      const row=document.createElement('div');
+      row.className='vendor-row';
+      row.innerHTML=`
+        <div class="vendor-name">${v.name}</div>
+        <div class="vendor-bar-w"><div class="vendor-bar" style="width:${Math.min(pct,100)}%;background:${v.c}"></div></div>
+        <div class="vendor-val" style="color:${v.c}">${pct}%</div>
+        <div class="vendor-lbl">no ano</div>
+        <div class="vendor-val" style="font-size:16px;color:rgba(255,255,255,.5)">${v._30d!=null?v._30d+'%':'—'}</div>
+        <div class="vendor-lbl">30 dias</div>
+      `;
+      el.appendChild(row);
+    });
+  }
+  renderVendors(sdrEl,sdrData);
+  renderVendors(comEl,comData);
+}
+
+/* ═══════════════════════════════════════
+   BUILD UTM TABLE
+═══════════════════════════════════════ */
+function buildUTMTable(){
+  const tb=document.getElementById('utm-tbody-tv');
+  if(!tb)return;
+  tb.innerHTML='';
+  UTM_ROWS.forEach(r=>{
+    const tagLbl={ig:'Instagram',org:'Orgânico',fb:'Facebook',out:'Outbound'}[r.tag]||r.tag;
+    const convClass=parseInt(r.lp)>=30?'g':parseInt(r.lp)>=15?'o':'r';
+    tb.innerHTML+=`<tr>
+      <td><span class="utag ${r.tag}">${tagLbl}</span></td>
+      <td style="font-size:13px;color:rgba(255,255,255,.7)">${r.camp}</td>
+      <td style="font-size:17px;font-weight:800">${r.l.toLocaleString('pt-BR')}</td>
+      <td>${r.lc}</td>
+      <td><span class="pill ${convClass}">${r.lp}</span></td>
+      <td>${r.op||'—'}</td>
+      <td>${r.opp}</td>
+      <td style="color:rgba(255,255,255,.5)">${r.all}</td>
+    </tr>`;
+  });
+}
+
+/* ═══════════════════════════════════════
+   BUILD ALL CHARTS
+═══════════════════════════════════════ */
+function buildCharts(){
+  // Slide 2 - Metas
+  const barTpl=(data,color,label)=>({
+    type:'bar',
+    data:{labels:MESES,datasets:[{label,data,backgroundColor:color,borderRadius:3,barThickness:'flex'}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{x:{...noGrid,ticks:{maxRotation:45,font:{size:10}}},y:{...gridOpts}}}
+  });
+  mk('metaLeadsChart',barTpl(ML,'rgba(255,255,255,.3)','Leads'));
+  mk('metaOppChart',  barTpl(MO,C.gm,'Oport.'));
+  mk('metaFechChart', barTpl(MF,C.o,'Fechadas'));
+
+  // Slide 3 - Taxa SDR
+  mk('taxaChart',{
+    type:'line',
+    data:{labels:TAXA_M,datasets:[
+      {label:'SDR%',      data:TAXA_S,borderColor:C.gm,backgroundColor:'rgba(34,160,95,.1)', fill:true,tension:.4,pointRadius:4,pointBackgroundColor:C.gm},
+      {label:'Comercial%',data:TAXA_C,borderColor:C.o, backgroundColor:'rgba(245,166,35,.1)',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:C.o},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend},
+      scales:{x:{...noGrid},y:{...gridOpts,ticks:{...gridOpts.ticks,callback:v=>v+'%'}}}}
+  });
+
+  // Slide 4 - Segmentação
+  const donutOpts={responsive:true,maintainAspectRatio:false,cutout:'55%',plugins:{legend:{...legend,position:'right',labels:{...legend.labels,font:{size:11}}}}};
+  mk('ramoChart',{type:'doughnut',data:{
+    labels:['Moda&Esp.','Móveis&El.','Cel&Inform','Ótica','Farma','MatConst','Outros'],
+    datasets:[{data:[759,442,430,260,181,156,18],backgroundColor:['#e91e63','#ff9800','#03a9f4','#9c27b0','#4caf50','#ff5722','rgba(255,255,255,.2)'],borderWidth:2,borderColor:'rgba(0,0,0,.3)'}]
+  },options:donutOpts});
+  mk('fatChart',{type:'doughnut',data:{
+    labels:['Até 15mil','15-30mil','30-75mil','75-150mil','Acima 150mil'],
+    datasets:[{data:[156,916,679,349,315],backgroundColor:['rgba(255,255,255,.2)',C.b,C.o,C.g,'#9c27b0'],borderWidth:2,borderColor:'rgba(0,0,0,.3)'}]
+  },options:donutOpts});
+  mk('lojasChart',{type:'doughnut',data:{
+    labels:['1 Loja','2-5 Ljs','6-10 Ljs','Acima 10','Online'],
+    datasets:[{data:[1755,571,42,39,8],backgroundColor:[C.gm,C.o,C.b,'#9c27b0','rgba(255,255,255,.2)'],borderWidth:2,borderColor:'rgba(0,0,0,.3)'}]
+  },options:donutOpts});
+  mk('credChart',{type:'doughnut',data:{
+    labels:['Próprio','Não vende','Financeira','N/A'],
+    datasets:[{data:[1151,1027,237,0],backgroundColor:[C.gm,C.o,C.r,'rgba(255,255,255,.15)'],borderWidth:2,borderColor:'rgba(0,0,0,.3)'}]
+  },options:donutOpts});
+
+  // Slide 5 - SDR Perda
+  const pMeses=['mai/25','jun/25','jul/25','ago/25','set/25','out/25','nov/25','dez/25','jan/26','fev/26','mar/26','abr/26','mai/26','jun/26'];
+  mk('perdaChart',{
+    type:'bar',
+    data:{labels:pMeses,datasets:[
+      {label:'Sem Contato', data:[104,119,139,244,276,228,266,233,271,168,176,185,134,84], backgroundColor:'#1565c0',stack:'s',borderRadius:2},
+      {label:'Financeira',  data:[75,80,75,100,106,129,120,120,125,100,100,100,82,46],     backgroundColor:C.r,       stack:'s',borderRadius:2},
+      {label:'Outros',      data:[61,62,70,84,66,68,72,75,62,75,76,62,56,32],              backgroundColor:C.o,       stack:'s',borderRadius:2},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend},
+      scales:{x:{...noGrid,stacked:true},y:{...gridOpts,stacked:true}}}
+  });
+  mk('motivosChart',{type:'doughnut',data:{
+    labels:['Sem Contato 43%','Financeira 33%','Perfil 6%','Produto 5%','Outros 13%'],
+    datasets:[{data:[43,33,6,5,13],backgroundColor:['#1565c0',C.r,'#9c27b0','#ff5722','rgba(255,255,255,.2)'],borderWidth:2,borderColor:'rgba(0,0,0,.3)'}]
+  },options:{responsive:true,maintainAspectRatio:false,cutout:'50%',plugins:{legend:{...legend,position:'right',labels:{...legend.labels,font:{size:11}}}}}});
+  mk('sdrCanaisChart',{type:'doughnut',data:{
+    labels:['Website','DM Instagram','Bot','form_manual','Outros'],
+    datasets:[{data:[91,4,3,1,1],backgroundColor:[C.gm,'#e91e63',C.b,C.o,'rgba(255,255,255,.2)'],borderWidth:2,borderColor:'rgba(0,0,0,.3)'}]
+  },options:{responsive:true,maintainAspectRatio:false,cutout:'50%',plugins:{legend:{...legend,position:'right',labels:{...legend.labels,font:{size:11}}}}}});
+
+  // Slide 6 - Mkt
+  const mktMeses=MESES.slice(-14);
+  const mktVals=[57,63,95,67,78,88,88,103,110,92,101,91,90,86];
+  mk('mktLeadsChart',{
+    type:'line',
+    data:{labels:mktMeses,datasets:[{
+      label:'Leads Gerados',data:mktVals,
+      borderColor:C.gm,backgroundColor:'rgba(34,160,95,.12)',
+      fill:true,tension:.4,pointRadius:4,pointBackgroundColor:C.gm,borderWidth:2.5
+    }]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{...noGrid},y:{...gridOpts}}}
+  });
+  mk('mktRamoChart',{
+    type:'bar',
+    data:{labels:['Moda&Esp.','Outros','Farma','Cel&Info','Móveis','ParaCasa','Ótica'],
+      datasets:[{data:[870,589,327,282,254,212,112],backgroundColor:C.gm,borderRadius:3,barThickness:'flex'}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{...gridOpts},y:{...noGrid}}}
+  });
+  mk('mktFatChart',{
+    type:'bar',
+    data:{labels:['Até 15mil','15-30mil','30-75mil','Acima 150mil','75-150mil'],
+      datasets:[{data:[1635,481,316,172,171],backgroundColor:[C.r,C.o,C.gm,C.b,'rgba(255,255,255,.25)'],borderRadius:3}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{...noGrid},y:{...gridOpts}}}
+  });
+
+  // Slide 7 - UTMs
+  mk('utmDistChart',{type:'doughnut',data:{
+    labels:['Instagram Ads','Orgânico','Facebook','YouTube','N/A'],
+    datasets:[{data:[4669,720,3,7,6],backgroundColor:['#e91e63',C.gm,'#1565c0','#b71c1c','rgba(255,255,255,.2)'],borderWidth:2,borderColor:'rgba(0,0,0,.3)'}]
+  },options:{responsive:true,maintainAspectRatio:false,cutout:'55%',plugins:{legend:{...legend,position:'right',labels:{...legend.labels,font:{size:12}}}}}});
+  mk('utmTrendChart',{
+    type:'line',
+    data:{labels:['31/mai','07/jun','14/jun','21/jun','28/jun'],datasets:[
+      {label:'Instagram',data:[96,66,71,82,85],borderColor:'#e91e63',backgroundColor:'rgba(233,30,99,.1)',fill:true,tension:.4,pointRadius:5},
+      {label:'Orgânico', data:[57,78,72,80,86],borderColor:C.gm,   backgroundColor:'rgba(34,160,95,.1)', fill:true,tension:.4,pointRadius:5},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend},scales:{x:{...noGrid},y:{...gridOpts}}}
+  });
+}
+
+/* ═══════════════════════════════════════
+   RENDER COM DADOS REAIS
+   Substitui dados mockados pelos do Salesforce
+═══════════════════════════════════════ */
+
+// KPIs do Slide 1 — Funil Geral
+function renderKPIs(kpis){
+  const set=(id,val)=>{const el=document.getElementById(id);if(el)el.textContent=val;};
+  set('kpi-leads',   kpis.$L.toLocaleString('pt-BR'));
+  set('kpi-lost',    kpis.funnelLost.toLocaleString('pt-BR'));
+  set('kpi-lost-pct',kpis.funnelLostPct);
+  set('kpi-sdr',     (kpis.$LC||0).toLocaleString('pt-BR'));
+  set('kpi-oport',   (kpis.pipelineCount||0).toLocaleString('pt-BR'));
+  set('kpi-won',     kpis.$OpC.toLocaleString('pt-BR'));
+  set('kpi-won-pct', kpis['$Op%C']);
+  set('kpi-funil-perda','93%'); // calculado via medida DAX no PBI; manter fixo até integração de fluxo
+  set('kpi-funil-win','5%');
+  // Slide 2 — Metas
+  set('kpi-faturamento','R$ '+fmt(kpis.$ValorTotal));
+  set('kpi-setup','R$ '+fmt(kpis.$ValorSetup));
+  set('kpi-mrr','R$ '+fmt(kpis.$ValorMRR));
+  set('kpi-op-mes',(kpis.$OpC||0)+'');
+  // Slide 6 — Mkt
+  set('kpi-mkt-total',kpis.$L.toLocaleString('pt-BR'));
+  // Slide 7 — UTM
+  set('kpi-utm-ig','4.669');   // virá de UTM_G agrupado
+  set('kpi-utm-org','720');
+}
+
+function fmt(n){
+  if(!n) return '—';
+  if(n>=1e9)  return (n/1e9).toFixed(1)+' Bi';
+  if(n>=1e6)  return (n/1e6).toFixed(1)+' Mi';
+  if(n>=1e3)  return (n/1e3).toFixed(0)+' Mil';
+  return n.toLocaleString('pt-BR');
+}
+
+// Funil dinâmico
+function renderFunnel(kpis){
+  const el=document.getElementById('funnel1');
+  if(!el)return;
+  const $L   = kpis.$L||5533;
+  const $LC  = kpis.$LC||991;
+  const $Op  = kpis.$Op||1027;
+  const $OpC = kpis.$OpC||277;
+  const steps=[
+    {lbl:'Leads Novos', n:$L,   pct:100,                      c:C.b},
+    {lbl:'Convertidos', n:$LC,  pct:+($LC/$L*100).toFixed(1), c:C.o},
+    {lbl:'Oport. Aber.',n:$Op,  pct:+($Op/$L*100).toFixed(1), c:C.r},
+    {lbl:'Clientes',    n:$OpC, pct:+($OpC/$L*100).toFixed(1),c:C.gm},
+  ];
+  const max=$L;
+  el.innerHTML='';
+  steps.forEach((s,i)=>{
+    const w=Math.max(12,(s.n/max)*100);
+    const row=document.createElement('div');
+    row.className='fun-row';
+    row.innerHTML=`
+      <div class="fun-label">${s.lbl}</div>
+      <div class="fun-bar-outer"><div class="fun-bar" style="width:${w}%;background:${s.c}">${s.n.toLocaleString('pt-BR')}</div></div>
+      <div class="fun-pct">${i===0?'100%':s.pct+'%'}</div>`;
+    el.appendChild(row);
+    if(i<steps.length-1){
+      const a=document.createElement('div');
+      a.style.cssText='text-align:center;color:rgba(255,255,255,.25);font-size:14px;margin:-3px 0 -3px 155px';
+      a.textContent='↓';
+      el.appendChild(a);
+    }
+  });
+}
+
+// Vendors dinâmicos
+function renderVendors(byOwner){
+  function render(elId, data, convKey, totalKey){
+    const el=document.getElementById(elId);
+    if(!el||!data)return;
+    el.innerHTML='';
+    const max=Math.max(...data.map(d=>d[totalKey]||0))||1;
+    data.slice(0,4).forEach((v,i)=>{
+      const conv=v[convKey]||0;
+      const total=v[totalKey]||0;
+      const pct=total>0?(conv/total*100).toFixed(0)+'%':'0%';
+      const colors=[C.gm,C.o,C.r,C.b];
+      const row=document.createElement('div');
+      row.className='vendor-row';
+      row.innerHTML=`
+        <div class="vendor-name">${v['Owner.Name']||v.Name}</div>
+        <div class="vendor-bar-w"><div class="vendor-bar" style="width:${Math.max(4,total/max*100)}%;background:${colors[i]}"></div></div>
+        <div class="vendor-val" style="color:${colors[i]}">${pct}</div>
+        <div class="vendor-lbl">conv.</div>
+        <div class="vendor-val" style="font-size:15px;color:rgba(255,255,255,.4)">${total}</div>
+        <div class="vendor-lbl">total</div>`;
+      el.appendChild(row);
+    });
+  }
+  if(byOwner?.leads) render('sdr-vendors', byOwner.leads, 'Convertidos','TotalLeads');
+  if(byOwner?.oport) render('com-vendors', byOwner.oport, 'Ganhas','TotalOport');
+}
+
+// Gráficos de tendência dinâmicos
+function renderTrendCharts(data){
+  const {leadsByMonth, byRamo, byFat, byCred, byQntLj, utmData} = data;
+
+  // Slide 2 — Leads por mês
+  mk('metaLeadsChart',{type:'bar',
+    data:{labels:leadsByMonth.map(m=>m.mes),datasets:[{label:'Leads',data:leadsByMonth.map(m=>m.total),backgroundColor:'rgba(255,255,255,.28)',borderRadius:3,barThickness:'flex'}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{...noGrid,ticks:{maxRotation:45,font:{size:10}}},y:{...gridOpts}}}});
+
+  mk('metaOppChart',{type:'bar',
+    data:{labels:MO_LABELS,datasets:[{label:'Oport.',data:MO,backgroundColor:C.gm,borderRadius:3,barThickness:'flex'}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{...noGrid,ticks:{maxRotation:45,font:{size:10}}},y:{...gridOpts}}}});
+
+  mk('metaFechChart',{type:'bar',
+    data:{labels:MO_LABELS,datasets:[{label:'Fechadas',data:MF,backgroundColor:C.o,borderRadius:3,barThickness:'flex'}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{...noGrid,ticks:{maxRotation:45,font:{size:10}}},y:{...gridOpts}}}});
+
+  // Slide 4 — Segmentação (donuts com dados reais)
+  const donutOpts={responsive:true,maintainAspectRatio:false,cutout:'55%',plugins:{legend:{...legend,position:'right',labels:{...legend.labels,font:{size:11}}}}};
+  const DCOLORS=['#e91e63','#ff9800','#03a9f4','#9c27b0','#4caf50','#ff5722','rgba(255,255,255,.2)'];
+
+  if(byRamo?.length){
+    mk('ramoChart',{type:'doughnut',data:{
+      labels:byRamo.map(r=>r.label),
+      datasets:[{data:byRamo.map(r=>r.total),backgroundColor:DCOLORS,borderWidth:2,borderColor:'rgba(0,0,0,.3)'}]
+    },options:donutOpts});
+  }
+  if(byFat?.length){
+    mk('fatChart',{type:'doughnut',data:{
+      labels:byFat.map(r=>r.label),
+      datasets:[{data:byFat.map(r=>r.total),backgroundColor:[C.r,C.o,C.gm,C.b,'#9c27b0'],borderWidth:2,borderColor:'rgba(0,0,0,.3)'}]
+    },options:donutOpts});
+  }
+  if(byQntLj?.length){
+    mk('lojasChart',{type:'doughnut',data:{
+      labels:byQntLj.map(r=>r.label),
+      datasets:[{data:byQntLj.map(r=>r.total),backgroundColor:[C.gm,C.o,C.b,'#9c27b0','rgba(255,255,255,.2)'],borderWidth:2,borderColor:'rgba(0,0,0,.3)'}]
+    },options:donutOpts});
+  }
+  if(byCred?.length){
+    mk('credChart',{type:'doughnut',data:{
+      labels:byCred.map(r=>r.label),
+      datasets:[{data:byCred.map(r=>r.total),backgroundColor:[C.gm,C.o,C.r,'rgba(255,255,255,.15)'],borderWidth:2,borderColor:'rgba(0,0,0,.3)'}]
+    },options:donutOpts});
+  }
+
+  // Slide 6 — Marketing
+  mk('mktLeadsChart',{type:'line',
+    data:{labels:leadsByMonth.slice(-14).map(m=>m.mes),datasets:[{
+      label:'Leads',data:leadsByMonth.slice(-14).map(m=>m.total),
+      borderColor:C.gm,backgroundColor:'rgba(34,160,95,.12)',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:C.gm,borderWidth:2.5
+    }]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{...noGrid},y:{...gridOpts}}}});
+
+  if(byRamo?.length){
+    mk('mktRamoChart',{type:'bar',
+      data:{labels:byRamo.slice(0,7).map(r=>r.label),datasets:[{data:byRamo.slice(0,7).map(r=>r.total),backgroundColor:C.gm,borderRadius:3,barThickness:'flex'}]},
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{...gridOpts},y:{...noGrid}}}});
+  }
+  if(byFat?.length){
+    mk('mktFatChart',{type:'bar',
+      data:{labels:byFat.map(r=>r.label),datasets:[{data:byFat.map(r=>r.total),backgroundColor:[C.r,C.o,C.gm,C.b,'rgba(255,255,255,.25)'],borderRadius:3}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{...noGrid},y:{...gridOpts}}}});
+  }
+
+  // Slide 7 — UTMs dinâmico
+  if(utmData?.length){
+    buildUTMTable(utmData);
+    // Agrupa por UTM_G para o donut
+    const utmGroups={};
+    utmData.forEach(r=>{const g=r.UTM_G||'direct';if(!utmGroups[g])utmGroups[g]=0;utmGroups[g]+=r.total;});
+    const gLabels=Object.keys(utmGroups);
+    const gVals=gLabels.map(g=>utmGroups[g]);
+    const gColors=['#e91e63',C.gm,'#1565c0','#b71c1c','rgba(255,255,255,.2)'];
+    mk('utmDistChart',{type:'doughnut',data:{labels:gLabels,datasets:[{data:gVals,backgroundColor:gColors.slice(0,gLabels.length),borderWidth:2,borderColor:'rgba(0,0,0,.3)'}]},
+      options:{responsive:true,maintainAspectRatio:false,cutout:'55%',plugins:{legend:{...legend,position:'right',labels:{...legend.labels,font:{size:12}}}}}});
+  }
+}
+
+// UTM Table com dados dinâmicos
+function buildUTMTable(rows){
+  const r=rows||UTM_ROWS;
+  const tb=document.getElementById('utm-tbody-tv');
+  if(!tb)return;
+  tb.innerHTML='';
+  r.slice(0,8).forEach(row=>{
+    const g=row.UTM_G||row.tag;
+    const g2=row.UTM_G2||row.camp;
+    const tagLbl={instagram:'Instagram',organic:'Orgânico',org:'Orgânico',facebook:'Facebook',fb:'Facebook',ig:'Instagram',outbound:'Outbound',direct:'Direto'}[g]||g;
+    const tagClass={instagram:'ig',ig:'ig',organic:'org',org:'org',facebook:'fb',fb:'fb',outbound:'out'}[g]||'';
+    const lp=row['$L%C']||row.lp||'—';
+    const convPct=parseInt(lp)>=30?'g':parseInt(lp)>=15?'o':'r';
+    tb.innerHTML+=`<tr>
+      <td><span class="utag ${tagClass}">${tagLbl}</span></td>
+      <td style="font-size:12px;color:rgba(255,255,255,.65);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${g2}</td>
+      <td style="font-size:17px;font-weight:800">${(row.total||row.l||0).toLocaleString('pt-BR')}</td>
+      <td>${row.convertidos||row.lc||0}</td>
+      <td><span class="pill ${convPct}">${lp}</span></td>
+      <td>${row.oport||row.op||'—'}</td>
+      <td>${row['$Op%C']||row.opp||'—'}</td>
+      <td style="color:rgba(255,255,255,.4)">${row['$Op%CALL']||row.all||'—'}</td>
+    </tr>`;
+  });
+}
+
+// Labels auxiliares (manter hardcoded para slides sem dados mensais do Salesforce)
+const MO_LABELS=['jan/25','fev/25','mar/25','abr/25','mai/25','jun/25','jul/25','ago/25','set/25','out/25','nov/25','dez/25','jan/26','fev/26','mar/26','abr/26','mai/26','jun/26'];
+const MO=[164,131,158,145,129,138,183,175,194,183,181,115,193,202,178,174,175,168];
+const MF=[48,36,53,49,51,46,41,42,53,56,69,27,48,47,60,40,48,41];
+
+/* ═══════════════════════════════════════
+   INIT + INTEGRAÇÃO SALESFORCE
+═══════════════════════════════════════ */
+
+// Atualiza badge de status na topbar
+function updateStatusBadge(status){
+  const el=document.getElementById('sf-status');
+  if(!el)return;
+  el.textContent=status.icon+' '+status.text;
+  el.style.color=status.color;
+}
+
+// Função principal de carregamento
+async function loadData(period='30d'){
+  updateStatusBadge({text:'Carregando…',color:C.o,icon:'⟳'});
+  try {
+    // SalesforceAPI é definido em salesforce-api.js (quando incluído)
+    // Se não estiver disponível, usa mock interno
+    const api = typeof SalesforceAPI !== 'undefined' ? SalesforceAPI : null;
+    const data = api ? await api.getData(period) : getMockData();
+
+    renderKPIs(data.kpis);
+    renderFunnel(data.kpis);
+    renderVendors(data.byOwner);
+    renderTrendCharts(data);
+    buildUTMTable(data.utmData);
+    buildChartsStatic(); // gráficos que não dependem de dados ao vivo
+
+    const status = api ? api.getStatus() : {text:'Dados Mockados',color:C.o,icon:'⚠'};
+    updateStatusBadge(status);
+    console.log('[Dashboard TV] Dados carregados com sucesso', new Date().toLocaleTimeString('pt-BR'));
+  } catch(e) {
+    console.error('[Dashboard TV] Erro ao carregar dados:', e);
+    if(e.message==='NOT_AUTHENTICATED'){
+      updateStatusBadge({text:'Clique para conectar',color:C.r,icon:'○'});
+    } else if(e.message==='TOKEN_EXPIRED'){
+      updateStatusBadge({text:'Sessão expirada — reconectando…',color:C.r,icon:'!'});
+      setTimeout(()=>{ if(typeof SalesforceAPI!=='undefined') SalesforceAPI.Auth.login(); }, 1500);
+    } else {
+      // Fallback para dados mockados em caso de erro
+      const data = getMockData();
+      renderKPIs(data.kpis);
+      renderFunnel(data.kpis);
+      renderVendors(data.byOwner);
+      renderTrendCharts(data);
+      updateStatusBadge({text:'Erro — exibindo cache',color:C.r,icon:'!'});
+    }
+  }
+}
+
+// Gráficos que não mudam com o período (SDR history, taxa, UTM trends)
+function buildChartsStatic(){
+  const TAXA_M=['jun/25','jul/25','ago/25','set/25','out/25','nov/25','dez/25','jan/26','fev/26','mar/26','abr/26','mai/26','jun/26'];
+  const TAXA_S=[36.9,38,37.3,39.5,28.8,30.9,15.5,26.9,25.9,25.8,28.7,38.4,34.5];
+  const TAXA_C=[37.8,30.1,32,27.2,36.3,28.1,28.4,26.4,29.8,31.1,29.4,27.8,21.8];
+  mk('taxaChart',{type:'line',data:{labels:TAXA_M,datasets:[
+    {label:'SDR%', data:TAXA_S,borderColor:C.gm,backgroundColor:'rgba(34,160,95,.1)',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:C.gm},
+    {label:'Comercial%',data:TAXA_C,borderColor:C.o,backgroundColor:'rgba(245,166,35,.1)',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:C.o},
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend},scales:{x:{...noGrid},y:{...gridOpts,ticks:{...gridOpts.ticks,callback:v=>v+'%'}}}}});
+
+  // SDR Perda
+  const pM=['mai/25','jun/25','jul/25','ago/25','set/25','out/25','nov/25','dez/25','jan/26','fev/26','mar/26','abr/26','mai/26','jun/26'];
+  mk('perdaChart',{type:'bar',data:{labels:pM,datasets:[
+    {label:'Sem Contato',data:[104,119,139,244,276,228,266,233,271,168,176,185,134,84],backgroundColor:'#1565c0',stack:'s',borderRadius:2},
+    {label:'Financeira', data:[75,80,75,100,106,129,120,120,125,100,100,100,82,46],  backgroundColor:C.r,stack:'s',borderRadius:2},
+    {label:'Outros',     data:[61,62,70,84,66,68,72,75,62,75,76,62,56,32],           backgroundColor:C.o,stack:'s',borderRadius:2},
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend},scales:{x:{...noGrid,stacked:true},y:{...gridOpts,stacked:true}}}});
+
+  const dOpts={responsive:true,maintainAspectRatio:false,cutout:'50%',plugins:{legend:{...legend,position:'right',labels:{...legend.labels,font:{size:11}}}}};
+  mk('motivosChart',{type:'doughnut',data:{labels:['Sem Contato 43%','Financeira 33%','Perfil 6%','Produto 5%','Outros 13%'],
+    datasets:[{data:[43,33,6,5,13],backgroundColor:['#1565c0',C.r,'#9c27b0','#ff5722','rgba(255,255,255,.2)'],borderWidth:2,borderColor:'rgba(0,0,0,.3)'}]},options:dOpts});
+  mk('sdrCanaisChart',{type:'doughnut',data:{labels:['Website 91%','DM Insta 4%','Bot 3%','Outros 2%'],
+    datasets:[{data:[91,4,3,2],backgroundColor:[C.gm,'#e91e63',C.b,'rgba(255,255,255,.2)'],borderWidth:2,borderColor:'rgba(0,0,0,.3)'}]},options:dOpts});
+
+  mk('utmTrendChart',{type:'line',data:{labels:['31/mai','07/jun','14/jun','21/jun','28/jun'],datasets:[
+    {label:'Instagram',data:[96,66,71,82,85],borderColor:'#e91e63',backgroundColor:'rgba(233,30,99,.1)',fill:true,tension:.4,pointRadius:5},
+    {label:'Orgânico', data:[57,78,72,80,86],borderColor:C.gm,backgroundColor:'rgba(34,160,95,.1)',fill:true,tension:.4,pointRadius:5},
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend},scales:{x:{...noGrid},y:{...gridOpts}}}});
+}
+
+// Mock inline (fallback se salesforce-api.js não estiver carregado)
+function getMockData(){
+  const MESES=['jan/25','fev/25','mar/25','abr/25','mai/25','jun/25','jul/25','ago/25','set/25','out/25','nov/25','dez/25','jan/26','fev/26','mar/26','abr/26','mai/26','jun/26'];
+  const ML=[1083,1343,1471,1780,1807,1709,1913,2916,2008,2400,2625,2672,3094,3183,2871,3024,2833,2625];
+  const MC=[216,269,294,356,361,342,383,584,402,480,525,534,619,637,574,605,567,525];
+  return {
+    kpis:{$L:5533,$LC:991,'$L%C':'17%',$Op:1027,$OpC:277,$OpP:746,'$Op%C':'24%',pipelineCount:249,pipelineValue:2400000,$ValorTotal:413000000,$ValorMRR:173000000,$ValorSetup:240000000,funnelLost:4436,funnelLostPct:'84%'},
+    leadsByMonth:MESES.map((mes,i)=>({mes,total:ML[i],convertidos:MC[i],timestamp:i})),
+    byRamo:[{label:'Moda&Esporte',total:759},{label:'Móveis&Eletro',total:442},{label:'Cel&Inform',total:430},{label:'Ótica',total:260},{label:'Farma&Perf.',total:181},{label:'MatConst',total:156}],
+    byFat:[{label:'Até 15mil',total:156},{label:'15-30mil',total:916},{label:'30-75mil',total:679},{label:'75-150mil',total:349},{label:'Acima 150mil',total:315}],
+    byCred:[{label:'Próprio',total:1151},{label:'Não vende',total:1027},{label:'Financeira',total:237}],
+    byQntLj:[{label:'1 Lj',total:1755},{label:'2-5 Ljs',total:571},{label:'6-10 Ljs',total:42},{label:'Acima 10',total:39},{label:'Online',total:8}],
+    utmData:UTM_ROWS,
+    pipelineStages:[],
+    byOwner:{
+      leads:[{'Owner.Name':'Matheus',TotalLeads:448,Convertidos:117},{'Owner.Name':'Raquel',TotalLeads:301,Convertidos:39}],
+      oport:[{'Owner.Name':'Ully',TotalOport:82,Ganhas:72},{'Owner.Name':'Marcelo',TotalOport:14,Ganhas:6},{'Owner.Name':'Eliana',TotalOport:12,Ganhas:1}],
+    },
+  };
+}
+
+// Sincronização manual (botão hover / status badge)
+async function syncNow(){
+  if(typeof SalesforceAPI==='undefined'){
+    await loadData(currentPeriod);
+    return;
+  }
+  if(!SalesforceAPI.Auth.isAuthenticated()){
+    // Não autenticado → dispara login OAuth
+    SalesforceAPI.Auth.login();
+    return;
+  }
+  // Autenticado → força refresh
+  updateStatusBadge({text:'Atualizando…', color:'#F5A623', icon:'⟳'});
+  await loadData(currentPeriod);
+}
+
+// Período atual — atualizado pelos botões
+let currentPeriod='30d';
+function setPeriod(p,btn){
+  document.querySelectorAll('.p-btn').forEach(b=>b.classList.remove('on'));
+  if(btn) btn.classList.add('on');
+  currentPeriod=p;
+  loadData(p);
+}
+
+/* ─── INIT ─── */
+document.addEventListener('DOMContentLoaded', async ()=>{
+  startTime = Date.now();
+
+  // 1. Captura token do callback OAuth (vem no hash da URL após login)
+  const isCallback = typeof SalesforceAPI!=='undefined' && SalesforceAPI.init();
+
+  // 2. Renderiza UI com dados mockados imediatamente (tela não fica em branco)
+  const mock = getMockData();
+  renderFunnel(mock.kpis);
+  buildVendors();
+  buildUTMTable();
+  buildChartsStatic();
+  renderTrendCharts(mock);
+
+  // 3. Se já tem token ou é mock, carrega dados
+  if(typeof SalesforceAPI==='undefined'){
+    await loadData('30d');
+  } else if(SalesforceAPI.Auth.isAuthenticated()){
+    // Tem token — carrega dados reais
+    await loadData('30d');
+  } else {
+    // Não autenticado — mostra botão de login claro e aguarda clique
+    updateStatusBadge({text:'Clique para conectar ao Salesforce', color:'#F5A623', icon:'○'});
+    const el=document.getElementById('sf-status');
+    if(el){
+      el.style.fontSize='13px';
+      el.style.fontWeight='600';
+      el.style.padding='4px 10px';
+      el.style.background='rgba(245,166,35,0.15)';
+      el.style.borderRadius='6px';
+    }
+  }
+
+  // 4. Auto-refresh a cada 5 minutos
+  setInterval(()=>{
+    if(typeof SalesforceAPI==='undefined' || SalesforceAPI.Auth.isAuthenticated()){
+      loadData(currentPeriod);
+    }
+  }, 5 * 60 * 1000);
+});
+</script>
+</body>
+</html>
