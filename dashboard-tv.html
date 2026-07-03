@@ -6,26 +6,32 @@
 <title>Meu Crediário · Dashboard TV</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="salesforce-api.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Fira+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
 <style>
-/* ─── TOKENS ─── */
+/* ─── TOKENS (Meu Crediário Design System) ─── */
 :root {
-  --g:   #1A7A4A;
-  --gm:  #22A05F;
-  --gl:  rgba(26,122,74,.18);
-  --r:   #C0271E;
-  --rl:  rgba(192,39,30,.18);
-  --o:   #F5A623;
-  --ol:  rgba(245,166,35,.18);
-  --bg:  #0E1117;
-  --bg2: #161B24;
-  --bg3: #1E2533;
-  --bd:  rgba(255,255,255,.07);
+  --font-display: 'Fredoka', 'Trebuchet MS', system-ui, sans-serif;
+  --font-body:    'Fira Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --g:   #006151;  /* mc-verde — primary */
+  --gm:  #01865F;  /* mc-viridian — vivid green */
+  --gl:  rgba(1,134,95,.18);
+  --r:   #C91D1D;  /* mc-vermelho */
+  --rl:  rgba(201,29,29,.18);
+  --o:   #F4881C;  /* mc-tangerina */
+  --ol:  rgba(244,136,28,.18);
+  --bg:  #043b32;  /* green-900 — deep TV background */
+  --bg2: #06483c;  /* green-800 — cards */
+  --bg3: #005647;  /* green-700 — secondary surfaces */
+  --bd:  rgba(255,255,255,.08);
   --t1:  #FFFFFF;
-  --t2:  rgba(255,255,255,.65);
-  --t3:  rgba(255,255,255,.35);
-  --blue:#3B82F6;
-  --blu2:rgba(59,130,246,.18);
-  --rad: 12px;
+  --t2:  #d7f1e6;  /* green-100 — secondary text on dark green */
+  --t3:  rgba(255,255,255,.4);
+  --blue:#bcd3e6;  /* tint-blue — data-viz accent for green panels */
+  --blu2:rgba(188,211,230,.18);
+  --rad: 12px;     /* = --radius-md */
 }
 
 /* ─── RESET ─── */
@@ -36,7 +42,7 @@ html, body {
   overflow: hidden;
   background: var(--bg);
   color: var(--t1);
-  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -64,17 +70,14 @@ html, body {
 .logo {
   display: flex; align-items: center; gap: 14px;
 }
-.logo svg { width: 44px; height: 44px; }
-.logo-words { display: flex; flex-direction: column; }
-.logo-meu   { font-size: 12px; color: var(--t3); letter-spacing: .5px; }
-.logo-cred  { font-size: 22px; font-weight: 800; letter-spacing: -1px; line-height: 1; }
-.logo-cred em { color: var(--g); font-style: normal; }
+.logo-img { height: 32px; width: auto; display: block; }
 
 .topbar-center {
   display: flex; flex-direction: column; align-items: center; gap: 2px;
 }
 .slide-name {
-  font-size: 18px; font-weight: 700; color: var(--t1);
+  font-family: var(--font-display);
+  font-size: 18px; font-weight: 600; color: var(--t1);
 }
 .slide-dots {
   display: flex; gap: 6px;
@@ -90,7 +93,7 @@ html, body {
   display: flex; flex-direction: column; align-items: flex-end; gap: 3px;
 }
 .tb-date { font-size: 13px; color: var(--t3); }
-.tb-time { font-size: 26px; font-weight: 700; color: var(--t1); line-height: 1; }
+.tb-time { font-family: var(--font-display); font-size: 26px; font-weight: 600; color: var(--t1); line-height: 1; }
 
 /* ─── PROGRESS BAR ─── */
 #progress-bar {
@@ -171,12 +174,13 @@ html, body {
   color: var(--t3);
 }
 .kpi-value {
-  font-size: 44px; font-weight: 800;
+  font-family: var(--font-display);
+  font-size: 44px; font-weight: 600;
   line-height: 1; color: var(--t1);
-  letter-spacing: -2px;
+  letter-spacing: -1px;
 }
 .kpi-value.big { font-size: 56px; }
-.kpi-value.med { font-size: 36px; letter-spacing: -1px; }
+.kpi-value.med { font-size: 36px; letter-spacing: -.5px; }
 .kpi-delta {
   display: inline-flex; align-items: center; gap: 4px;
   font-size: 13px; font-weight: 700;
@@ -184,7 +188,7 @@ html, body {
   align-self: flex-start;
 }
 .kpi-delta.pos { background: var(--gl); color: var(--gm); }
-.kpi-delta.neg { background: var(--rl); color: #ff6b6b; }
+.kpi-delta.neg { background: var(--rl); color: #e26a6a; }
 .kpi-delta.warn{ background: var(--ol); color: var(--o); }
 .kpi-delta.neu { background: var(--bd); color: var(--t3); }
 .kpi-sub { font-size: 12px; color: var(--t3); }
@@ -230,10 +234,11 @@ html, body {
 }
 .fun-bar-outer { flex: 1; }
 .fun-bar {
-  height: 40px; border-radius: 6px;
+  height: 40px; border-radius: var(--radius-sm, 8px);
   display: flex; align-items: center;
   padding: 0 16px;
-  font-size: 18px; font-weight: 800; color: #fff;
+  font-family: var(--font-display);
+  font-size: 18px; font-weight: 600; color: #fff;
   transition: width .8s ease;
 }
 .fun-pct {
@@ -271,7 +276,7 @@ html, body {
   font-size: 13px; font-weight: 700;
 }
 .pill.g  { background: var(--gl); color: var(--gm); }
-.pill.r  { background: var(--rl); color: #ff6b6b; }
+.pill.r  { background: var(--rl); color: #e26a6a; }
 .pill.o  { background: var(--ol); color: var(--o); }
 .pill.b  { background: var(--blu2); color: var(--blue); }
 
@@ -284,7 +289,7 @@ html, body {
 .vendor-name { font-size: 18px; font-weight: 700; width: 100px; flex-shrink: 0; }
 .vendor-bar-w { flex: 1; height: 10px; background: var(--bd); border-radius: 5px; }
 .vendor-bar { height: 100%; border-radius: 5px; }
-.vendor-val { font-size: 22px; font-weight: 800; width: 70px; text-align: right; flex-shrink: 0; }
+.vendor-val { font-family: var(--font-display); font-size: 22px; font-weight: 600; width: 70px; text-align: right; flex-shrink: 0; }
 .vendor-lbl { font-size: 12px; color: var(--t3); width: 90px; flex-shrink: 0; }
 
 /* ─── BAR STAT (horizontal) ─── */
@@ -293,7 +298,7 @@ html, body {
 .bs-label { font-size: 14px; font-weight: 600; color: var(--t2); width: 130px; flex-shrink: 0; }
 .bs-bar-w { flex: 1; height: 8px; background: var(--bd); border-radius: 4px; }
 .bs-bar { height: 100%; border-radius: 4px; background: var(--g); }
-.bs-val { font-size: 16px; font-weight: 800; width: 70px; text-align: right; flex-shrink: 0; color: var(--t1); }
+.bs-val { font-family: var(--font-display); font-size: 16px; font-weight: 600; width: 70px; text-align: right; flex-shrink: 0; color: var(--t1); }
 .bs-pct { font-size: 13px; color: var(--t3); width: 40px; flex-shrink: 0; }
 
 /* ─── CONTROLS (hover) ─── */
@@ -337,15 +342,7 @@ html, body {
   <!-- TOP BAR -->
   <div id="topbar">
     <div class="logo">
-      <svg viewBox="0 0 44 44" fill="none">
-        <path d="M22 5A17 17 0 0 0 5 22"  stroke="#1A7A4A" stroke-width="6" stroke-linecap="round"/>
-        <path d="M5 22A17 17 0 0 0 22 39" stroke="#C0271E" stroke-width="6" stroke-linecap="round"/>
-        <path d="M22 39A17 17 0 0 0 39 22" stroke="#F5A623" stroke-width="6" stroke-linecap="round"/>
-      </svg>
-      <div class="logo-words">
-        <span class="logo-meu">meu</span>
-        <span class="logo-cred">credi<em>ário</em></span>
-      </div>
+      <img src="assets/brand/logo-full-white.png" alt="Meu Crediário" class="logo-img"/>
     </div>
 
     <div class="topbar-center">
@@ -384,7 +381,7 @@ html, body {
         </div>
         <div class="kpi r">
           <div class="kpi-label">Perda SDR</div>
-          <div class="kpi-value" id="kpi-lost" style="color:#ff6b6b">4.436</div>
+          <div class="kpi-value" id="kpi-lost" style="color:#e26a6a">4.436</div>
           <div class="kpi-delta neg"><span id="kpi-lost-pct">84%</span> dos leads</div>
         </div>
         <div class="kpi w">
@@ -417,11 +414,11 @@ html, body {
           <div class="card-title">Resultado Final 2026</div>
           <div class="card-body" style="display:flex;flex-direction:column;justify-content:center;gap:20px;">
             <div style="text-align:center;padding:20px;background:var(--bg3);border-radius:10px;">
-              <div style="font-size:80px;font-weight:900;color:var(--r);line-height:1" id="kpi-funil-perda">93%</div>
+              <div style="font-family:var(--font-display);font-size:80px;font-weight:600;color:var(--r);line-height:1" id="kpi-funil-perda">93%</div>
               <div style="font-size:16px;color:var(--t3);margin-top:4px">Funil Total — Perda</div>
             </div>
             <div style="text-align:center;padding:20px;background:var(--gl);border-radius:10px;border:1px solid var(--g)">
-              <div style="font-size:72px;font-weight:900;color:var(--gm);line-height:1" id="kpi-funil-win">5%</div>
+              <div style="font-family:var(--font-display);font-size:72px;font-weight:600;color:var(--gm);line-height:1" id="kpi-funil-win">5%</div>
               <div style="font-size:16px;color:var(--t3);margin-top:4px">Lead → Cliente</div>
             </div>
           </div>
@@ -637,7 +634,7 @@ html, body {
         </div>
         <div class="kpi r">
           <div class="kpi-label">Leads Perdidos</div>
-          <div class="kpi-value" style="color:#ff6b6b">416</div>
+          <div class="kpi-value" style="color:#e26a6a">416</div>
           <div class="kpi-delta neg">43% sem contato</div>
         </div>
       </div>
@@ -867,12 +864,12 @@ const UTM_ROWS=[
 /* ═══════════════════════════════════════
    CHART DEFAULTS
 ═══════════════════════════════════════ */
-Chart.defaults.font.family="'Inter','Segoe UI',sans-serif";
+Chart.defaults.font.family="'Fira Sans','Segoe UI',sans-serif";
 Chart.defaults.font.size=13;
 Chart.defaults.color='rgba(255,255,255,.45)';
 Chart.defaults.borderColor='rgba(255,255,255,.07)';
 
-const C={g:'#1A7A4A',gm:'#22A05F',r:'#C0271E',o:'#F5A623',b:'#3B82F6',gr:'rgba(255,255,255,.25)',ig:'#e91e63',fb:'#1565c0',org:'#1A7A4A'};
+const C={g:'#006151',gm:'#01865F',r:'#C91D1D',o:'#F4881C',b:'#bcd3e6',gr:'rgba(255,255,255,.25)',ig:'#e91e63',fb:'#1565c0',org:'#006151'};
 
 let _ch={};
 function mk(id,cfg){
@@ -1008,8 +1005,8 @@ function buildCharts(){
   mk('taxaChart',{
     type:'line',
     data:{labels:TAXA_M,datasets:[
-      {label:'SDR%',      data:TAXA_S,borderColor:C.gm,backgroundColor:'rgba(34,160,95,.1)', fill:true,tension:.4,pointRadius:4,pointBackgroundColor:C.gm},
-      {label:'Comercial%',data:TAXA_C,borderColor:C.o, backgroundColor:'rgba(245,166,35,.1)',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:C.o},
+      {label:'SDR%',      data:TAXA_S,borderColor:C.gm,backgroundColor:'rgba(1,134,95,.1)', fill:true,tension:.4,pointRadius:4,pointBackgroundColor:C.gm},
+      {label:'Comercial%',data:TAXA_C,borderColor:C.o, backgroundColor:'rgba(244,136,28,.1)',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:C.o},
     ]},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend},
@@ -1064,7 +1061,7 @@ function buildCharts(){
     type:'line',
     data:{labels:mktMeses,datasets:[{
       label:'Leads Gerados',data:mktVals,
-      borderColor:C.gm,backgroundColor:'rgba(34,160,95,.12)',
+      borderColor:C.gm,backgroundColor:'rgba(1,134,95,.12)',
       fill:true,tension:.4,pointRadius:4,pointBackgroundColor:C.gm,borderWidth:2.5
     }]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{...noGrid},y:{...gridOpts}}}
@@ -1091,7 +1088,7 @@ function buildCharts(){
     type:'line',
     data:{labels:['31/mai','07/jun','14/jun','21/jun','28/jun'],datasets:[
       {label:'Instagram',data:[96,66,71,82,85],borderColor:'#e91e63',backgroundColor:'rgba(233,30,99,.1)',fill:true,tension:.4,pointRadius:5},
-      {label:'Orgânico', data:[57,78,72,80,86],borderColor:C.gm,   backgroundColor:'rgba(34,160,95,.1)', fill:true,tension:.4,pointRadius:5},
+      {label:'Orgânico', data:[57,78,72,80,86],borderColor:C.gm,   backgroundColor:'rgba(1,134,95,.1)', fill:true,tension:.4,pointRadius:5},
     ]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend},scales:{x:{...noGrid},y:{...gridOpts}}}
   });
@@ -1246,7 +1243,7 @@ function renderTrendCharts(data){
   mk('mktLeadsChart',{type:'line',
     data:{labels:leadsByMonth.slice(-14).map(m=>m.mes),datasets:[{
       label:'Leads',data:leadsByMonth.slice(-14).map(m=>m.total),
-      borderColor:C.gm,backgroundColor:'rgba(34,160,95,.12)',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:C.gm,borderWidth:2.5
+      borderColor:C.gm,backgroundColor:'rgba(1,134,95,.12)',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:C.gm,borderWidth:2.5
     }]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{...noGrid},y:{...gridOpts}}}});
 
@@ -1360,8 +1357,8 @@ function buildChartsStatic(){
   const TAXA_S=[36.9,38,37.3,39.5,28.8,30.9,15.5,26.9,25.9,25.8,28.7,38.4,34.5];
   const TAXA_C=[37.8,30.1,32,27.2,36.3,28.1,28.4,26.4,29.8,31.1,29.4,27.8,21.8];
   mk('taxaChart',{type:'line',data:{labels:TAXA_M,datasets:[
-    {label:'SDR%', data:TAXA_S,borderColor:C.gm,backgroundColor:'rgba(34,160,95,.1)',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:C.gm},
-    {label:'Comercial%',data:TAXA_C,borderColor:C.o,backgroundColor:'rgba(245,166,35,.1)',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:C.o},
+    {label:'SDR%', data:TAXA_S,borderColor:C.gm,backgroundColor:'rgba(1,134,95,.1)',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:C.gm},
+    {label:'Comercial%',data:TAXA_C,borderColor:C.o,backgroundColor:'rgba(244,136,28,.1)',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:C.o},
   ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend},scales:{x:{...noGrid},y:{...gridOpts,ticks:{...gridOpts.ticks,callback:v=>v+'%'}}}}});
 
   // SDR Perda
@@ -1380,7 +1377,7 @@ function buildChartsStatic(){
 
   mk('utmTrendChart',{type:'line',data:{labels:['31/mai','07/jun','14/jun','21/jun','28/jun'],datasets:[
     {label:'Instagram',data:[96,66,71,82,85],borderColor:'#e91e63',backgroundColor:'rgba(233,30,99,.1)',fill:true,tension:.4,pointRadius:5},
-    {label:'Orgânico', data:[57,78,72,80,86],borderColor:C.gm,backgroundColor:'rgba(34,160,95,.1)',fill:true,tension:.4,pointRadius:5},
+    {label:'Orgânico', data:[57,78,72,80,86],borderColor:C.gm,backgroundColor:'rgba(1,134,95,.1)',fill:true,tension:.4,pointRadius:5},
   ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend},scales:{x:{...noGrid},y:{...gridOpts}}}});
 }
 
@@ -1417,7 +1414,7 @@ async function syncNow(){
     return;
   }
   // Autenticado → força refresh
-  updateStatusBadge({text:'Atualizando…', color:'#F5A623', icon:'⟳'});
+  updateStatusBadge({text:'Atualizando…', color:'#F4881C', icon:'⟳'});
   await loadData(currentPeriod);
 }
 
@@ -1453,13 +1450,13 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     await loadData('30d');
   } else {
     // Não autenticado — mostra botão de login claro e aguarda clique
-    updateStatusBadge({text:'Clique para conectar ao Salesforce', color:'#F5A623', icon:'○'});
+    updateStatusBadge({text:'Clique para conectar ao Salesforce', color:'#F4881C', icon:'○'});
     const el=document.getElementById('sf-status');
     if(el){
       el.style.fontSize='13px';
       el.style.fontWeight='600';
       el.style.padding='4px 10px';
-      el.style.background='rgba(245,166,35,0.15)';
+      el.style.background='rgba(244,136,28,0.15)';
       el.style.borderRadius='6px';
     }
   }
